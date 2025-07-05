@@ -134,7 +134,7 @@ jobs:
           echo "Image reference: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
 
       - name: Debug Image Tag
-        run: echo "Image Tag: sha-${{ github.sha }}"
+        run: "echo \"Image Tag: sha-${{ github.sha }}\""
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
