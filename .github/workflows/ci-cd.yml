@@ -109,8 +109,8 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,format=long
-            type=ref,event=branch
-            latest
+            # type=ref,event=branch
+            # latest
       
       # Debugging step to check metadata
       - name: Debug Docker Metadata
