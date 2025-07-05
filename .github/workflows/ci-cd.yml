@@ -118,7 +118,7 @@ jobs:
           echo "Docker Tags: ${{ steps.meta.outputs.tags }}"
           echo "Docker Labels: ${{ steps.meta.outputs.labels }}"
           echo "Docker Annotations: ${{ steps.meta.outputs.annotations }}"
-
+      
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
@@ -129,25 +129,33 @@ jobs:
           load: true
 
       # Debugging step to verify the image reference
-      - name: Log Image Reference
+      - name: Log Image Reference (Before Trivy Scan)
         run: |
-          echo "Image reference: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+          echo "Image reference: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.set_output.outputs.image_tag }}"
 
       - name: Debug Image Tag
         run: "echo \"Image Tag: sha-${{ github.sha }}\""
+        
+      - name: Log Final Image Reference for Trivy
+        run: |
+          echo "Final Image Reference for Trivy: ghcr.io/khannashiv/Project-CICD-Github-Actions:sha-${{ github.sha }}"
 
-      - name: Run Trivy vulnerability scanner
+      - name: Log Trivy Command
+        run: |
+          echo "Running Trivy scan on: ghcr.io/khannashiv/Project-CICD-Github-Actions:sha-${{ github.sha }}"
+
+      # Run Trivy Scan with Debugging enabled
+      - name: Run Trivy vulnerability scanner (with Debug)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
-          # image-ref: ghcr.io/khannashiv/Project-CICD-Github-Actions:latest
-          # image-ref: "ghcr.io/khannashiv/project-cicd-github-actions:sha-51f5c7fe5d3706cb89aaf4eefa2e95b973c9bd02"
+          image-ref: "ghcr.io/khannashiv/Project-CICD-Github-Actions:sha-${{ github.sha }}"
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-      
+          debug: true  # Enables Trivy debug logs
+
       - name: Push Docker image
         uses: docker/build-push-action@v5
         with:
