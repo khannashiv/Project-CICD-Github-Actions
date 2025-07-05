@@ -120,7 +120,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           load: true
-      
+          
+      - name: Log Image Reference
+        run: echo ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
