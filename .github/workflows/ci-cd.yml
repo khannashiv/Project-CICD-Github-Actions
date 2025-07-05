@@ -139,9 +139,9 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          # image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
           # image-ref: ghcr.io/khannashiv/Project-CICD-Github-Actions:latest
-          image-ref: "ghcr.io/khannashiv/project-cicd-github-actions:sha-51f5c7fe5d3706cb89aaf4eefa2e95b973c9bd02"
+          # image-ref: "ghcr.io/khannashiv/project-cicd-github-actions:sha-51f5c7fe5d3706cb89aaf4eefa2e95b973c9bd02"
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
