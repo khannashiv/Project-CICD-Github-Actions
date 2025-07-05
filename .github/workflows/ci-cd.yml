@@ -112,6 +112,13 @@ jobs:
             type=ref,event=branch
             latest
       
+      # Debugging step to check metadata
+      - name: Debug Docker Metadata
+        run: |
+          echo "Docker Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Docker Labels: ${{ steps.meta.outputs.labels }}"
+          echo "Docker Annotations: ${{ steps.meta.outputs.annotations }}"
+
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
@@ -120,9 +127,11 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           load: true
-          
+
+      # Debugging step to verify the image reference
       - name: Log Image Reference
-        run: echo ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        run: |
+          echo "Image reference: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
