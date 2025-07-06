@@ -146,7 +146,7 @@ jobs:
 
       # Run Trivy Scan with Debugging enabled
       - name: Run Trivy vulnerability scanner (with Debug)
-        uses: aquasecurity/trivy-action@v0.21.0
+        uses: aquasecurity/trivy-action@latest
         with:
           image-ref: "ghcr.io/khannashiv/Project-CICD-Github-Actions:sha-${{ github.sha }}"
           format: 'table'
