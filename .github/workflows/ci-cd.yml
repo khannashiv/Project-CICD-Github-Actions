@@ -4,7 +4,7 @@ on:
   push:
     branches: [ main ]
     paths-ignore:
-      - 'kubernetes/deployment.yaml'  # Ignore changes to this file to prevent loops
+      - 'kubernetes/deployment.yaml'
   pull_request:
     branches: [ main ]
 
@@ -15,18 +15,18 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run tests
-        run: npm test || echo "No tests found, would add tests in a real project"
+        run: npm test || echo "No tests found"
 
   lint:
     name: Static Code Analysis
@@ -34,16 +34,16 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Run ESLint
         run: npm run lint
 
@@ -54,19 +54,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Build project
         run: npm run build
-      
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -85,23 +85,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: build-artifacts
           path: dist/
-      
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.TOKEN }}
-      
+
       - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v5
@@ -109,17 +109,12 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=sha,format=long
-            # type=ref,event=branch
-            # latest
-      
-      # Debugging step to check metadata
-      - name: Debug Docker Metadata
-        run: |
-          echo "Docker Tags: ${{ steps.meta.outputs.tags }}"
-          echo "Docker Labels: ${{ steps.meta.outputs.labels }}"
-          echo "Docker Annotations: ${{ steps.meta.outputs.annotations }}"
-      
-      - name: Build Docker image
+
+      - name: Set image tag output
+        id: set_output
+        run: echo "image_tag=${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Build and load Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -128,33 +123,15 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           load: true
 
-      # Debugging step to verify the image reference
-      - name: Log Image Reference (Before Trivy Scan)
-        run: |
-          echo "Image reference: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.set_output.outputs.image_tag }}"
-
-      - name: Debug Image Tag
-        run: "echo \"Image Tag: sha-${{ github.sha }}\""
-        
-      - name: Log Final Image Reference for Trivy
-        run: |
-          echo "Final Image Reference for Trivy: ghcr.io/khannashiv/Project-CICD-Github-Actions:sha-${{ github.sha }}"
-
-      - name: Log Trivy Command
-        run: |
-          echo "Running Trivy scan on: ghcr.io/khannashiv/Project-CICD-Github-Actions:sha-${{ github.sha }}"
-
-      # Run Trivy Scan with Debugging enabled
-      - name: Run Trivy vulnerability scanner (with Debug)
+      - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: "ghcr.io/khannashiv/Project-CICD-Github-Actions:sha-${{ github.sha }}"
+          image-ref: "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}"
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
-          debug: true  # Enables Trivy debug logs
 
       - name: Push Docker image
         uses: docker/build-push-action@v5
@@ -163,10 +140,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-      
-      - name: Set image tag output
-        id: set_output
-        run: echo "image_tag=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
   update-k8s:
     name: Update Kubernetes Deployment
@@ -178,30 +151,25 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.TOKEN }}
-      
+
       - name: Setup Git config
         run: |
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-      
+
       - name: Update Kubernetes deployment file
         env:
-          IMAGE_TAG: sha-${{ github.sha }}
+          IMAGE_TAG: ${{ needs.docker.outputs.image_tag }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           REGISTRY: ghcr.io
         run: |
-          # Define the new image with tag
           NEW_IMAGE="${REGISTRY}/${GITHUB_REPOSITORY}:${IMAGE_TAG}"
-          
-          # Update the deployment file directly
           sed -i "s|image: ${REGISTRY}/.*|image: ${NEW_IMAGE}|g" kubernetes/deployment.yaml
-          
-          # Verify the change
           echo "Updated deployment to use image: ${NEW_IMAGE}"
           grep -A 1 "image:" kubernetes/deployment.yaml
-      
+
       - name: Commit and push changes
         run: |
           git add kubernetes/deployment.yaml
-          git commit -m "Update Kubernetes deployment with new image tag: ${{ needs.docker.outputs.image_tag }} [skip ci]" || echo "No changes to commit"
+          git commit -m "Update K8s deployment with image: ${{ needs.docker.outputs.image_tag }} [skip ci]" || echo "No changes to commit"
           git push
