@@ -104,35 +104,35 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       # OPTIONAL: Safer image cleanup (disabled by default)
-      # - name: Cleanup old Docker images (Keep only latest)
-      #   if: always()
-      #   run: |
-      #     echo "Fetching all package versions..."
-      #     # Get ALL versions (not just first page)
-      #     ALL_VERSIONS=$(curl -s \
-      #       -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-      #       -H "Accept: application/vnd.github.v3+json" \
-      #       "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=100")
+      - name: Cleanup old Docker images (Keep only latest)
+        if: always()
+        run: |
+          echo "Fetching all package versions..."
+          # Get ALL versions (not just first page)
+          ALL_VERSIONS=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=100")
 
-      #     # Extract and sort by creation date (newest first)
-      #     LATEST_VERSION=$(echo "$ALL_VERSIONS" | jq -r 'sort_by(.created_at) | reverse | .[0] | .id')
-      #     echo "Latest version ID to keep: $LATEST_VERSION"
+          # Extract and sort by creation date (newest first)
+          LATEST_VERSION=$(echo "$ALL_VERSIONS" | jq -r 'sort_by(.created_at) | reverse | .[0] | .id')
+          echo "Latest version ID to keep: $LATEST_VERSION"
 
-      #     # Get all other versions (excluding latest)
-      #     OLD_VERSIONS=$(echo "$ALL_VERSIONS" | jq -r "sort_by(.created_at) | reverse | .[] | select(.id != \"$LATEST_VERSION\") | .id")
+          # Get all other versions (excluding latest)
+          OLD_VERSIONS=$(echo "$ALL_VERSIONS" | jq -r "sort_by(.created_at) | reverse | .[] | select(.id != \"$LATEST_VERSION\") | .id")
 
-      #     if [ -z "$OLD_VERSIONS" ]; then
-      #       echo "No old images to delete."
-      #     else
-      #       echo "Deleting old versions:"
-      #       for VERSION_ID in $OLD_VERSIONS; do
-      #         echo "Deleting version $VERSION_ID"
-      #         curl -X DELETE \
-      #           -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-      #           "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions/$VERSION_ID"
-      #         sleep 1 # Rate limit protection
-      #       done
-      #     fi
+          if [ -z "$OLD_VERSIONS" ]; then
+            echo "No old images to delete."
+          else
+            echo "Deleting old versions:"
+            for VERSION_ID in $OLD_VERSIONS; do
+              echo "Deleting version $VERSION_ID"
+              curl -X DELETE \
+                -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+                "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions/$VERSION_ID"
+              sleep 1 # Rate limit protection
+            done
+          fi
 
   update-k8s:
     name: Update Kubernetes Deployment
