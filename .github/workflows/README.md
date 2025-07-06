@@ -1,27 +1,132 @@
-# GitHub Actions CI/CD Pipeline
+## GitHub Actions Pipeline Explanation
 
-This directory contains the GitHub Actions workflow for the Tic Tac Toe application's CI/CD pipeline.
+### 1. Workflow Overview
 
-## Pipeline Stages
+This pipeline automates:
 
-The CI/CD pipeline consists of the following stages:
+- ✅ **Testing:** Unit tests  
+- ✅ **Linting:** Code quality checks  
+- ✅ **Building:** Compiles the application  
+- ✅ **Dockerization:** Builds, scans, and pushes container images  
+- ✅ **Kubernetes Deployment:** Updates K8s manifests  
+- ✅ **Cleanup:** Maintains only the last 2 workflow runs and Docker images  
 
-1. **Unit Testing** - Runs the test suite using Vitest
-2. **Static Code Analysis** - Performs linting with ESLint
-3. **Build** - Creates a production build of the application
-4. **Docker Image Creation** - Builds a Docker image using a multi-stage Dockerfile
-5. **Docker Image Scan** - Scans the image for vulnerabilities using Trivy
-6. **Docker Image Push** - Pushes the image to GitHub Container Registry
-7. **Update Kubernetes Deployment** - Updates the Kubernetes deployment file with the new image tag
+---
 
-## How the Kubernetes Deployment Update Works
+### 2. Trigger Rules
 
-The "Update Kubernetes Deployment" stage:
+```yaml
+on:
+    push:
+        branches: [main]
+        paths-ignore:
+            - 'kubernetes/deployment.yaml'  # Prevents loops when K8s manifest updates
+            - '**/*.md'                    # Skips CI for Markdown file changes
+    pull_request:
+        branches: [main]
+```
 
-1. Runs only on pushes to the main branch
-2. Uses a shell script to update the image reference in the Kubernetes deployment file
-3. Commits and pushes the updated deployment file back to the repository
-4. This ensures that the Kubernetes manifest always references the latest image
+> **Key Behavior:**  
+> - Runs on pushes to `main` except for:
+>   - Changes to `deployment.yaml` (prevents infinite loops)
+>   - Changes to any `.md` files (docs-only changes)
+> - Runs on all PRs to `main` (regardless of file changes)
+
+---
+
+### 3. Job Dependencies
+
+```mermaid
+graph TD
+        A[test] --> C[build]
+        B[lint] --> C
+        C --> D[docker]
+        D --> E[update-k8s]
+        E --> F[cleanup]
+```
+
+- **Parallel:** `test` + `lint`
+- **Serial:** `build` → `docker` → `update-k8s` → `cleanup`
+
+---
+
+### 4. Key Job Explanations
+
+#### A. Docker Job
+
+- **Purpose:** Build, scan, and push Docker images to GHCR
+- **Critical Steps:**
+    1. **Metadata Generation:** Creates tags like `sha-<commit-hash>`
+    2. **Trivy Scanning:** Blocks push if critical/high vulnerabilities found
+    3. **Image Cleanup:** Keeps only last 2 tagged images & removes all untagged
+
+<details>
+<summary>Cleanup Logic</summary>
+
+```bash
+# Keep last 2 tagged images
+TAGGED_DIGESTS=$(... | tail -n +3)
+
+# Delete ALL untagged images
+UNTAGGED_DIGESTS=$(...)
+```
+</details>
+
+---
+
+#### B. Kubernetes Update Job
+
+- **Conditions:** Only runs on push to `main`
+- **What it does:**
+    1. Updates `deployment.yaml` with new image tag
+    2. Commits with `[skip ci]` to prevent workflow loops
+
+    #### How the Kubernetes Deployment Update Works
+
+        The "Update Kubernetes Deployment" stage:
+            1. Runs only on pushes to the main branch
+            2. Uses a shell script to update the image reference in the Kubernetes deployment file
+            3. Commits and pushes the updated deployment file back to the repository
+            4. This ensures that the Kubernetes manifest always references the latest image
+---
+
+#### C. Cleanup Job
+
+- **Purpose:** Prevent workflow run clutter
+- **Behavior:**  
+    - Keeps last 2 completed runs (any status)  
+    - Deletes older runs via GitHub API
+
+---
+
+### 5. Smart Optimization Features
+
+| Feature              | Implementation                                 | Benefit                              |
+|----------------------|------------------------------------------------|--------------------------------------|
+| Docs Ignore          | `paths-ignore: '**/*.md'`                      | Skips CI for documentation changes   |
+| K8s Loop Prevention  | `paths-ignore: deployment.yaml` + `[skip ci]`  | Avoids infinite CI loops             |
+| Docker Storage       | Automated cleanup of old images                 | Prevents GHCR storage bloat          |
+| Workflow History     | Keep last 2 runs                                | Clean GitHub Actions UI              |
+
+---
+
+### 6. Security Controls
+
+- **Image Scanning:**  
+    - Trivy checks for OS/library vulnerabilities  
+    - Fails on critical/high severity issues
+
+- **Secret Handling:**  
+    - Uses `secrets.TOKEN` for registry auth  
+    - Minimal permissions needed
+
+---
+
+### 7. Failure Recovery
+
+- `if: always()` in cleanup steps ensures:
+    - Image cleanup runs even if earlier steps fail
+    - Workflow history gets pruned regardless of job status
 
 ## Required Secrets
 
