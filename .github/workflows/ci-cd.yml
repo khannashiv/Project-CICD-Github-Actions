@@ -107,40 +107,43 @@ jobs:
       - name: Cleanup old Docker images
         if: always()
         run: |
-          echo "Fetching package versions from GHCR..."
+          echo "Starting image cleanup..."
           
-          # Get package versions with proper pagination
-          API_URL="https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=100"
+          # Use the correct API endpoint for container packages
+          API_URL="https://api.github.com/user/packages/container/${{ env.IMAGE_NAME }}/versions"
+          
+          # Get authenticated package versions
+          echo "Fetching package versions..."
           RESPONSE=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             "$API_URL")
-
-          # Debug: Show raw response
-          echo "API Response:"
-          echo "$RESPONSE" | jq .
-
-          # Extract and sort versions by creation date (newest first)
-          VERSIONS=$(echo "$RESPONSE" | jq -r 'sort_by(.created_at | sub("\\..+Z$"; "Z") | fromdateiso8601) | reverse')
           
-          # Debug: Show sorted versions
-          echo "Sorted Versions:"
-          echo "$VERSIONS" | jq .
-
-          # Keep only the newest version
-          LATEST_ID=$(echo "$VERSIONS" | jq -r '.[0].id')
+          # Verify we got a valid response
+          if echo "$RESPONSE" | jq -e '.message' >/dev/null; then
+            echo "Error fetching versions:"
+            echo "$RESPONSE" | jq .
+            exit 1
+          fi
+          
+          # Process versions (newest first)
+          echo "Processing versions..."
+          VERSION_IDS=$(echo "$RESPONSE" | jq -r 'sort_by(.created_at) | reverse | .[].id')
+          
+          # Keep the first version (most recent)
+          LATEST_ID=$(echo "$VERSION_IDS" | head -n 1)
           echo "Keeping latest version: $LATEST_ID"
-
-          # Delete all other versions
-          echo "$VERSIONS" | jq -r '.[1:] | .[].id' | while read VERSION_ID; do
+          
+          # Delete all older versions
+          echo "$VERSION_IDS" | tail -n +2 | while read VERSION_ID; do
             echo "Deleting version $VERSION_ID"
             curl -X DELETE \
               -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-              "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions/$VERSION_ID"
-            sleep 1  # Avoid rate limiting
+              "$API_URL/$VERSION_ID"
+            sleep 1  # Rate limit protection
           done
-
-          echo "Cleanup completed"
+          
+          echo "Cleanup completed successfully"
 
   update-k8s:
     name: Update Kubernetes Deployment
