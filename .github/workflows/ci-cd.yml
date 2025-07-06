@@ -104,37 +104,20 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       # OPTIONAL: Safer image cleanup (disabled by default)
-      - name: Cleanup old Docker images (Keep only latest)
+      - name: Cleanup old Docker images
         if: always()
         run: |
-          echo "Fetching all package versions..."
-          # Get raw JSON response
-          RESPONSE=$(curl -s \
+          curl -s \
             -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=100")
-
-          # Process versions with proper JSON handling
-          echo "$RESPONSE" > response.json
-          LATEST_VERSION=$(jq -r 'sort_by(.created_at) | reverse | .[0].id' response.json)
-          echo "Latest version ID to keep: $LATEST_VERSION"
-
-          # Get all other versions (excluding latest)
-          OLD_VERSIONS=$(jq -r "sort_by(.created_at) | reverse | .[] | select(.id != \"$LATEST_VERSION\") | .id" response.json)
-
-          if [ -z "$OLD_VERSIONS" ]; then
-            echo "No old images to delete."
-          else
-            echo "Deleting old versions:"
-            for VERSION_ID in $OLD_VERSIONS; do
-              echo "Deleting version $VERSION_ID"
+            "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=100" \
+            | jq -r 'sort_by(.created_at) | reverse | .[1:] | .[].id' \
+            | xargs -I{} sh -c '
+              echo "Deleting {}";
               curl -X DELETE \
                 -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-                "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions/$VERSION_ID"
-              sleep 1 # Rate limit protection
-            done
-          fi
-          rm -f response.json
+                "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions/{}";
+              sleep 1'
 
   update-k8s:
     name: Update Kubernetes Deployment
