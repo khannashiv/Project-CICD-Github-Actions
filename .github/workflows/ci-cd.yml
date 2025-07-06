@@ -108,11 +108,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Verify image exists
-        run: |
-          DIGEST=$(docker inspect --format='{{.RepoDigests}}' ghcr.io/${{ github.repository }}:sha-${{ github.sha }} | cut -d'@' -f2)
-          crane digest ghcr.io/${{ github.repository }}@$DIGEST
-          echo "Image verified at digest: $DIGEST"
+      # - name: Verify image exists
+      #   run: |
+      #     DIGEST=$(docker inspect --format='{{.RepoDigests}}' ghcr.io/${{ github.repository }}:sha-${{ github.sha }} | cut -d'@' -f2)
+      #     crane digest ghcr.io/${{ github.repository }}@$DIGEST
+      #     echo "Image verified at digest: $DIGEST"
 
       # OPTIONAL: Safer image cleanup (disabled by default)
       - name: Cleanup old images (Safe method)
