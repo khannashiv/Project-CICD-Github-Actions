@@ -1,253 +1,122 @@
-## Explaination of github actions pipeline.
+## GitHub Actions Pipeline Explanation
 
-1. Workflow Metadata & Triggers
+### 1. Workflow Overview
 
-name: CI/CD Pipeline
+This pipeline automates:
+
+- ✅ **Testing:** Unit tests  
+- ✅ **Linting:** Code quality checks  
+- ✅ **Building:** Compiles the application  
+- ✅ **Dockerization:** Builds, scans, and pushes container images  
+- ✅ **Kubernetes Deployment:** Updates K8s manifests  
+- ✅ **Cleanup:** Maintains only the last 2 workflow runs and Docker images  
+
+---
+
+### 2. Trigger Rules
+
+```yaml
 on:
-  push:
-    branches: [ main ]
-    paths-ignore:
-      - 'kubernetes/deployment.yaml'
-  pull_request:
-    branches: [ main ]
+    push:
+        branches: [main]
+        paths-ignore:
+            - 'kubernetes/deployment.yaml'  # Prevents loops when K8s manifest updates
+            - '**/*.md'                    # Skips CI for Markdown file changes
+    pull_request:
+        branches: [main]
+```
 
-<!-- 
- Explanation:
-        name:          Sets the name of the workflow (CI/CD Pipeline).
-        on.push:       Triggers the workflow when code is pushed to the main branch.
-        paths-ignore:  Skips triggering if changes are only in kubernetes/deployment.yaml (to avoid infinite loops when updating K8s manifests).
-        on.pull_request: Also triggers when a PR is opened against main.
- -->
+> **Key Behavior:**  
+> - Runs on pushes to `main` except for:
+>   - Changes to `deployment.yaml` (prevents infinite loops)
+>   - Changes to any `.md` files (docs-only changes)
+> - Runs on all PRs to `main` (regardless of file changes)
 
-2. Jobs Structure
+---
 
-        The workflow consists of 4 jobs:
-        test → Runs unit tests.
-        lint → Performs static code analysis (ESLint).
-        build → Builds the project.
-        docker → Builds, scans, and pushes a Docker image.
-        update-k8s → Updates Kubernetes deployment (only on main branch pushes).
+### 3. Job Dependencies
 
-3. Job: test (Unit Testing)
+```mermaid
+graph TD
+        A[test] --> C[build]
+        B[lint] --> C
+        C --> D[docker]
+        D --> E[update-k8s]
+        E --> F[cleanup]
+```
 
-test:
-  name: Unit Testing
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+- **Parallel:** `test` + `lint`
+- **Serial:** `build` → `docker` → `update-k8s` → `cleanup`
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
+---
 
-    - name: Install dependencies
-      run: npm ci
+### 4. Key Job Explanations
 
-    - name: Run tests
-      run: npm test || echo "No tests found"
+#### A. Docker Job
 
-<!-- 
-Explanation:
-        runs-on: ubuntu-latest:   Uses a GitHub-hosted Ubuntu runner.
-        actions/checkout@v4:      Checks out the repository code.
-        actions/setup-node@v4:    Sets up Node.js v20.
-        cache: 'npm':             Caches node_modules for faster builds.
-        npm ci:                   Installs dependencies (clean install, locked to package-lock.json).
-        npm test: Runs tests (with || fallback if no tests exist).
- -->
+- **Purpose:** Build, scan, and push Docker images to GHCR
+- **Critical Steps:**
+    1. **Metadata Generation:** Creates tags like `sha-<commit-hash>`
+    2. **Trivy Scanning:** Blocks push if critical/high vulnerabilities found
+    3. **Image Cleanup:** Keeps only last 2 tagged images & removes all untagged
 
- 4. Job: lint (Static Code Analysis)
+<details>
+<summary>Cleanup Logic</summary>
 
- lint:
-  name: Static Code Analysis
-  runs-on: ubuntu-latest
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+```bash
+# Keep last 2 tagged images
+TAGGED_DIGESTS=$(... | tail -n +3)
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
+# Delete ALL untagged images
+UNTAGGED_DIGESTS=$(...)
+```
+</details>
 
-    - name: Install dependencies
-      run: npm ci
+---
 
-    - name: Run ESLint
-      run: npm run lint
+#### B. Kubernetes Update Job
 
-<!-- Explanation:
-        Similar to test, but runs ESLint (npm run lint). 
--->
+- **Conditions:** Only runs on push to `main`
+- **What it does:**
+    1. Updates `deployment.yaml` with new image tag
+    2. Commits with `[skip ci]` to prevent workflow loops
 
-5. Job: build (Build Project)
+---
 
-build:
-  name: Build
-  runs-on: ubuntu-latest
-  needs: [test, lint]  # Depends on test & lint passing
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+#### C. Cleanup Job
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
+- **Purpose:** Prevent workflow run clutter
+- **Behavior:**  
+    - Keeps last 2 completed runs (any status)  
+    - Deletes older runs via GitHub API
 
-    - name: Install dependencies
-      run: npm ci
+---
 
-    - name: Build project
-      run: npm run build
+### 5. Smart Optimization Features
 
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: build-artifacts
-        path: dist/
+| Feature              | Implementation                                 | Benefit                              |
+|----------------------|------------------------------------------------|--------------------------------------|
+| Docs Ignore          | `paths-ignore: '**/*.md'`                      | Skips CI for documentation changes   |
+| K8s Loop Prevention  | `paths-ignore: deployment.yaml` + `[skip ci]`  | Avoids infinite CI loops             |
+| Docker Storage       | Automated cleanup of old images                 | Prevents GHCR storage bloat          |
+| Workflow History     | Keep last 2 runs                                | Clean GitHub Actions UI              |
 
-<!-- 
-    Explanation:
-        needs:         [test, lint]: Runs only if test and lint jobs succeed.
-        npm run build: Builds the project (e.g., transpiles TypeScript, bundles React, etc.).
-        actions/upload-artifact@v4: Uploads the dist/ folder as an artifact for later use in the docker job.
- -->
+---
 
- 6. Job: docker (Docker Build & Push)
+### 6. Security Controls
 
- docker:
-  name: Docker Build and Push
-  runs-on: ubuntu-latest
-  needs: [build]  # Depends on build job
-  env:
-    REGISTRY: ghcr.io
-    IMAGE_NAME: ${{ github.repository }}
-  outputs:
-    image_tag: ${{ steps.set_output.outputs.image_tag }}
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+- **Image Scanning:**  
+    - Trivy checks for OS/library vulnerabilities  
+    - Fails on critical/high severity issues
 
-    - name: Download build artifacts
-      uses: actions/download-artifact@v4
-      with:
-        name: build-artifacts
-        path: dist/
+- **Secret Handling:**  
+    - Uses `secrets.TOKEN` for registry auth  
+    - Minimal permissions needed
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+---
 
-    - name: Login to GitHub Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.TOKEN }}
+### 7. Failure Recovery
 
-    - name: Extract metadata for Docker
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        tags: |
-          type=sha,format=long,prefix=sha-
-
-    - name: Set image tag output
-      id: set_output
-      run: echo "image_tag=${{ steps.meta.outputs.version }}" >> $GITHUB_OUTPUT
-
-    - name: Build and load Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: false
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        load: true
-
-    - name: Run Trivy vulnerability scanner
-      uses: aquasecurity/trivy-action@0.28.0
-      with:
-        image-ref: "${{ steps.meta.outputs.tags }}"
-        format: 'table'
-        exit-code: '1'
-        ignore-unfixed: true
-        vuln-type: 'os,library'
-        severity: 'CRITICAL,HIGH'
-
-    - name: Push Docker image
-      uses: docker/build-push-action@v5
-      with:
-        context: .
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-
-<!-- 
-Key Components:
-        env: Sets REGISTRY=ghcr.io and IMAGE_NAME=github-repo-name.
-        outputs: Exposes image_tag for use in update-k8s.
-        docker/metadata-action@v5:
-            Generates Docker tags & labels automatically.
-            type=sha,format=long,prefix=sha- → Creates a tag like sha-<full-git-sha>.
-        docker/build-push-action@v5:
-            First, builds and loads the image locally (push: false).
-            After Trivy scan, pushes to GHCR (push: true).
-        aquasecurity/trivy-action@0.28.0:
-            Scans for OS & library vulnerabilities (vuln-type).
-            Fails only on CRITICAL/HIGH (severity).
-            Ignores unfixed vulnerabilities (ignore-unfixed).
--->
-
-7. Job: update-k8s (Update Kubernetes Deployment)
-
-update-k8s:
-  name: Update Kubernetes Deployment
-  runs-on: ubuntu-latest
-  needs: [docker]  # Depends on docker job
-  if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-  steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.TOKEN }}
-
-    - name: Setup Git config
-      run: |
-        git config user.name "GitHub Actions"
-        git config user.email "actions@github.com"
-
-    - name: Update Kubernetes deployment file
-      env:
-        IMAGE_TAG: ${{ needs.docker.outputs.image_tag }}
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        REGISTRY: ghcr.io
-      run: |
-        NEW_IMAGE="${REGISTRY}/${GITHUB_REPOSITORY}:${IMAGE_TAG}"
-        sed -i "s|image: ${REGISTRY}/.*|image: ${NEW_IMAGE}|g" kubernetes/deployment.yaml
-        echo "Updated deployment to use image: ${NEW_IMAGE}"
-        grep -A 1 "image:" kubernetes/deployment.yaml
-
-    - name: Commit and push changes
-      run: |
-        git add kubernetes/deployment.yaml
-        git commit -m "Update K8s deployment with image: ${{ needs.docker.outputs.image_tag }} [skip ci]" || echo "No changes to commit"
-        git push
-
-<!-- 
-    Explanation:
-            if: Runs only on main branch pushes (not PRs).
-            needs: [docker]: Waits for the docker job to complete.
-            sed Command:
-                Updates kubernetes/deployment.yaml with the new image tag.
-                Example: image: ghcr.io/user/repo:sha-abc123
-            git commit & push:
-                Commits the updated deployment.yaml.
-                [skip ci] prevents an infinite loop (since pushing changes would normally trigger the workflow again).
- -->
+- `if: always()` in cleanup steps ensures:
+    - Image cleanup runs even if earlier steps fail
+    - Workflow history gets pruned regardless of job status
