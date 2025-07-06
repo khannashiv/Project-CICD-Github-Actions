@@ -151,28 +151,28 @@ jobs:
           TAGGED_DIGESTS=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/khannashiv/packages/container/Project-CICD-Github-Actions/versions" \
+            "https://api.github.com/users/khannashiv/packages/container/project-cicd-github-actions/versions" \
             | jq -r 'sort_by(.updated_at) | reverse | .[] | select(.metadata.container.tags != []) | .id' | tail -n +3)
 
           for DIGEST in $TAGGED_DIGESTS; do
             echo "Deleting tagged digest: $DIGEST"
             curl -X DELETE \
               -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-              "https://api.github.com/users/khannashiv/packages/container/Project-CICD-Github-Actions/versions/$DIGEST"
+              "https://api.github.com/users/khannashiv/packages/container/project-cicd-github-actions/versions/$DIGEST"
           done
 
           # Delete ALL UNTAGGED images
           UNTAGGED_DIGESTS=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/khannashiv/packages/container/Project-CICD-Github-Actions/versions" \
+            "https://api.github.com/users/khannashiv/packages/container/project-cicd-github-actions/versions" \
             | jq -r '.[] | select(.metadata.container.tags == []) | .id')
 
           for DIGEST in $UNTAGGED_DIGESTS; do
             echo "Deleting untagged digest: $DIGEST"
             curl -X DELETE \
               -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-              "https://api.github.com/users/khannashiv/packages/container/Project-CICD-Github-Actions/versions/$DIGEST"
+              "https://api.github.com/users/khannashiv/packages/container/project-cicd-github-actions/versions/$DIGEST"
           done
         # This step keeps the container registry clean by removing old images
 
