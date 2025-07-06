@@ -141,18 +141,30 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      - name: Cleanup old Docker images (Keep last 2)
-        if: always()  # Run even if previous steps fail
+      - name: Cleanup old Docker images (Tagged + Untagged)
+        if: always()
         run: |
-          # Fetch all image digests (sorted by creation date)
-          DIGESTS=$(curl -s \
+          # Delete old TAGGED images (keep last 2)
+          TAGGED_DIGESTS=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${{ github.repository }}/versions" \
-            | jq -r 'sort_by(.created_at) | .[] | .id' | head -n -2)
+            | jq -r 'sort_by(.created_at) | .[] | select(.metadata.container.tags | length > 0) | .id' | head -n -2)
           
-          # Delete old images
-          for DIGEST in $DIGESTS; do
+          for DIGEST in $TAGGED_DIGESTS; do
+            curl -X DELETE \
+              -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+              "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${{ github.repository }}/versions/$DIGEST"
+          done
+
+          # Delete ALL UNTAGGED images
+          UNTAGGED_DIGESTS=$(curl -s \
+            -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${{ github.repository }}/versions" \
+            | jq -r '.[] | select(.metadata.container.tags | length == 0) | .id')
+          
+          for DIGEST in $UNTAGGED_DIGESTS; do
             curl -X DELETE \
               -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
               "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${{ github.repository }}/versions/$DIGEST"
