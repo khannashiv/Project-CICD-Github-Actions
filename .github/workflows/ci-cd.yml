@@ -159,7 +159,7 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/actions/runs?per_page=100" \
             | jq -r '.workflow_runs | sort_by(.created_at) | .[] | select(.status == "completed") | .id')
           
-          TO_DELETE=$(echo "$RUNS" | tail -n +3)
+          TO_DELETE=$(echo "$RUNS" | tail -n +2)
           echo "Runs to delete: $TO_DELETE"
           
           for RUN_ID in $TO_DELETE; do

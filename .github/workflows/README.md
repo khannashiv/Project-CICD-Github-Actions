@@ -163,3 +163,17 @@ Reference Docs:
 - [Trivy Action](https://github.com/aquasecurity/trivy-action)
 
 ---
+
+Q: Meaning of tail -n +6 ?
+
+Sol : 
+tail -n +6 Retains 5 Builds
+    The +6 means "start printing from line 6 onward" (i.e., it skips the first 5 lines).
+    Since you're deleting everything after those 5 lines, this retains the 5 most recent images.
+
+How to Adjust Retention
+
+To Keep:	Use:	Notes
+5 builds	tail -n +6	Skips 5, deletes the rest.
+10 builds	tail -n +11	Skips 10, deletes the rest.
+1 build	tail -n +2	Keeps only the latest.
