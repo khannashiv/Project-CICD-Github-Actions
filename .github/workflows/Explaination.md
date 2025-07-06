@@ -120,3 +120,4 @@ UNTAGGED_DIGESTS=$(...)
 - `if: always()` in cleanup steps ensures:
     - Image cleanup runs even if earlier steps fail
     - Workflow history gets pruned regardless of job status
+
