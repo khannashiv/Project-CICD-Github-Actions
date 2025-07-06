@@ -124,7 +124,8 @@ jobs:
           load: true
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        # uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: "${{ steps.meta.outputs.tags }}"
           format: 'table'
@@ -171,7 +172,7 @@ jobs:
               -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
               "https://api.github.com/users/khannashiv/packages/container/Project-CICD-Github-Actions/versions/$DIGEST"
           done
-          
+
   update-k8s:
     name: Update Kubernetes Deployment
     runs-on: ubuntu-latest
@@ -223,7 +224,7 @@ jobs:
 
           # Keep last 2 runs, delete the rest
           echo "All runs: $RUNS"
-          TO_DELETE=$(echo "$RUNS" | head -n -2)
+          TO_DELETE=$(echo "$RUNS" | tail -n +3)
           echo "Runs to delete: $TO_DELETE"
 
           for RUN_ID in $TO_DELETE; do
