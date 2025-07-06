@@ -109,18 +109,31 @@ jobs:
         run: |
           echo "Starting image cleanup..."
           
-          # Use the correct API endpoint for container packages
-          API_URL="https://api.github.com/user/packages/container/${{ env.IMAGE_NAME }}/versions"
+          # Use the CORRECT API endpoint for organization/user packages
+          OWNER="khannashiv"  # Your GitHub username/organization
+          PACKAGE_NAME="project-cicd-github-actions"  # Your package name
+          
+          # For user packages:
+          API_URL="https://api.github.com/users/$OWNER/packages/container/$PACKAGE_NAME/versions"
+          
+          # For organization packages (if applicable):
+          # API_URL="https://api.github.com/orgs/$OWNER/packages/container/$PACKAGE_NAME/versions"
           
           # Get authenticated package versions
-          echo "Fetching package versions..."
+          echo "Fetching package versions from: $API_URL"
           RESPONSE=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             "$API_URL")
           
+          # Debug: Show full response
+          echo "API Response:"
+          echo "$RESPONSE" | jq .
+          
           # Verify we got a valid response
-          if echo "$RESPONSE" | jq -e '.message' >/dev/null; then
+          if echo "$RESPONSE" | jq -e '.[0].id' >/dev/null; then
+            echo "Successfully fetched versions"
+          else
             echo "Error fetching versions:"
             echo "$RESPONSE" | jq .
             exit 1
@@ -129,6 +142,10 @@ jobs:
           # Process versions (newest first)
           echo "Processing versions..."
           VERSION_IDS=$(echo "$RESPONSE" | jq -r 'sort_by(.created_at) | reverse | .[].id')
+          
+          # Debug: Show all versions
+          echo "All versions:"
+          echo "$VERSION_IDS"
           
           # Keep the first version (most recent)
           LATEST_ID=$(echo "$VERSION_IDS" | head -n 1)
