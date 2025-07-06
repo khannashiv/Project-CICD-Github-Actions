@@ -104,96 +104,96 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
 
       # OPTIONAL: Safer image cleanup (disabled by default)
-      - name: Nuclear Image Cleanup (Keep ONLY newest)
-        if: always()
-        run: |
-          echo "🚀 Starting precision image cleanup with timestamp verification..."
+  #     - name: Nuclear Image Cleanup (Keep ONLY newest)
+  #       if: always()
+  #       run: |
+  #         echo "🚀 Starting precision image cleanup with timestamp verification..."
           
-          # Configuration
-          OWNER="khannashiv"
-          PACKAGE_NAME="project-cicd-github-actions"
-          API_URL="https://api.github.com/users/$OWNER/packages/container/$PACKAGE_NAME/versions"
+  #         # Configuration
+  #         OWNER="khannashiv"
+  #         PACKAGE_NAME="project-cicd-github-actions"
+  #         API_URL="https://api.github.com/users/$OWNER/packages/container/$PACKAGE_NAME/versions"
           
-          # Get all versions with full timestamp details
-          echo "📡 Fetching all image versions with exact timestamps..."
-          RESPONSE=$(curl -s --max-time 30 \
-            -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "$API_URL?per_page=100")
+  #         # Get all versions with full timestamp details
+  #         echo "📡 Fetching all image versions with exact timestamps..."
+  #         RESPONSE=$(curl -s --max-time 30 \
+  #           -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+  #           -H "Accept: application/vnd.github.v3+json" \
+  #           "$API_URL?per_page=100")
           
-          # Debug: Show raw timestamp data
-          echo "🕒 Raw timestamp data:"
-          echo "$RESPONSE" | jq '.[] | {id: .id, created_at: .created_at}'
+  #         # Debug: Show raw timestamp data
+  #         echo "🕒 Raw timestamp data:"
+  #         echo "$RESPONSE" | jq '.[] | {id: .id, created_at: .created_at}'
           
-          # Process with bulletproof timestamp handling
-          VERSION_DATA=$(echo "$RESPONSE" | jq -c '
-            map({
-              id: .id,
-              ts: (.created_at | sub("\\..+Z$"; "Z") | fromdateiso8601)
-            }) | sort_by(.ts) | reverse'
-          )
+  #         # Process with bulletproof timestamp handling
+  #         VERSION_DATA=$(echo "$RESPONSE" | jq -c '
+  #           map({
+  #             id: .id,
+  #             ts: (.created_at | sub("\\..+Z$"; "Z") | fromdateiso8601)
+  #           }) | sort_by(.ts) | reverse'
+  #         )
           
-          # Extract sorted IDs
-          VERSION_IDS=$(echo "$VERSION_DATA" | jq -r '.[].id')
-          echo "🔢 Version IDs in order (newest first):"
-          echo "$VERSION_IDS"
+  #         # Extract sorted IDs
+  #         VERSION_IDS=$(echo "$VERSION_DATA" | jq -r '.[].id')
+  #         echo "🔢 Version IDs in order (newest first):"
+  #         echo "$VERSION_IDS"
           
-          # Keep ONLY the absolute newest
-          LATEST_ID=$(echo "$VERSION_IDS" | head -n 1)
-          LATEST_TS=$(echo "$VERSION_DATA" | jq -r '.[0].ts | todateiso8601')
-          echo "💎 Keeping latest: $LATEST_ID (created: $LATEST_TS)"
+  #         # Keep ONLY the absolute newest
+  #         LATEST_ID=$(echo "$VERSION_IDS" | head -n 1)
+  #         LATEST_TS=$(echo "$VERSION_DATA" | jq -r '.[0].ts | todateiso8601')
+  #         echo "💎 Keeping latest: $LATEST_ID (created: $LATEST_TS)"
           
-          # Delete ALL others with timestamp verification
-          echo "$VERSION_DATA" | jq -c '.[1:][]' | while read ITEM; do
-            OLD_ID=$(echo "$ITEM" | jq -r '.id')
-            OLD_TS=$(echo "$ITEM" | jq -r '.ts | todateiso8601')
-            echo "🗑️ Deleting $OLD_ID (created: $OLD_TS)"
+  #         # Delete ALL others with timestamp verification
+  #         echo "$VERSION_DATA" | jq -c '.[1:][]' | while read ITEM; do
+  #           OLD_ID=$(echo "$ITEM" | jq -r '.id')
+  #           OLD_TS=$(echo "$ITEM" | jq -r '.ts | todateiso8601')
+  #           echo "🗑️ Deleting $OLD_ID (created: $OLD_TS)"
             
-            curl -X DELETE --fail \
-              -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-              "$API_URL/$OLD_ID"
+  #           curl -X DELETE --fail \
+  #             -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+  #             "$API_URL/$OLD_ID"
             
-            sleep 2  # Extra conservative rate limiting
-          done
+  #           sleep 2  # Extra conservative rate limiting
+  #         done
           
-          # Final verification
-          echo "✅ Cleanup complete. Verifying..."
-          FINAL_VERSIONS=$(curl -s \
-            -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "$API_URL")
+  #         # Final verification
+  #         echo "✅ Cleanup complete. Verifying..."
+  #         FINAL_VERSIONS=$(curl -s \
+  #           -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+  #           -H "Accept: application/vnd.github.v3+json" \
+  #           "$API_URL")
           
-          FINAL_COUNT=$(echo "$FINAL_VERSIONS" | jq length)
-          echo "🔍 Current versions remaining: $FINAL_COUNT"
+  #         FINAL_COUNT=$(echo "$FINAL_VERSIONS" | jq length)
+  #         echo "🔍 Current versions remaining: $FINAL_COUNT"
           
-          if [ "$FINAL_COUNT" -ne 1 ]; then
-            echo "❌ CRITICAL: Cleanup failed! Remaining versions:"
-            echo "$FINAL_VERSIONS" | jq '.[] | {id: .id, created_at: .created_at}'
-            exit 1
-          else
-            echo "🎉 Success! Only the newest image remains."
-          fi
+  #         if [ "$FINAL_COUNT" -ne 1 ]; then
+  #           echo "❌ CRITICAL: Cleanup failed! Remaining versions:"
+  #           echo "$FINAL_VERSIONS" | jq '.[] | {id: .id, created_at: .created_at}'
+  #           exit 1
+  #         else
+  #           echo "🎉 Success! Only the newest image remains."
+  #         fi
         
-  update-k8s:
-    name: Update Kubernetes Deployment
-    runs-on: ubuntu-latest
-    needs: [docker]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.TOKEN }}
-      - run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-      - run: |
-          NEW_IMAGE="ghcr.io/${{ github.repository }}:${{ needs.docker.outputs.image_tag }}"
-          sed -i "s|image: ghcr.io/.*|image: ${NEW_IMAGE}|g" kubernetes/deployment.yaml
-          echo "Updated deployment to use image: ${NEW_IMAGE}"
-      - run: |
-          git add kubernetes/deployment.yaml
-          git commit -m "Update K8s deployment with image: ${{ needs.docker.outputs.image_tag }} [skip ci]" || echo "No changes to commit"
-          git push
+  # update-k8s:
+  #   name: Update Kubernetes Deployment
+  #   runs-on: ubuntu-latest
+  #   needs: [docker]
+  #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         token: ${{ secrets.TOKEN }}
+  #     - run: |
+  #         git config user.name "GitHub Actions"
+  #         git config user.email "actions@github.com"
+  #     - run: |
+  #         NEW_IMAGE="ghcr.io/${{ github.repository }}:${{ needs.docker.outputs.image_tag }}"
+  #         sed -i "s|image: ghcr.io/.*|image: ${NEW_IMAGE}|g" kubernetes/deployment.yaml
+  #         echo "Updated deployment to use image: ${NEW_IMAGE}"
+  #     - run: |
+  #         git add kubernetes/deployment.yaml
+  #         git commit -m "Update K8s deployment with image: ${{ needs.docker.outputs.image_tag }} [skip ci]" || echo "No changes to commit"
+  #         git push
 
   cleanup:
     name: Cleanup Old Workflow Runs
