@@ -81,6 +81,13 @@ UNTAGGED_DIGESTS=$(...)
     1. Updates `deployment.yaml` with new image tag
     2. Commits with `[skip ci]` to prevent workflow loops
 
+    #### How the Kubernetes Deployment Update Works
+
+        The "Update Kubernetes Deployment" stage:
+            1. Runs only on pushes to the main branch
+            2. Uses a shell script to update the image reference in the Kubernetes deployment file
+            3. Commits and pushes the updated deployment file back to the repository
+            4. This ensures that the Kubernetes manifest always references the latest image
 ---
 
 #### C. Cleanup Job
@@ -120,16 +127,6 @@ UNTAGGED_DIGESTS=$(...)
 - `if: always()` in cleanup steps ensures:
     - Image cleanup runs even if earlier steps fail
     - Workflow history gets pruned regardless of job status
-
-
-## How the Kubernetes Deployment Update Works
-
-The "Update Kubernetes Deployment" stage:
-
-1. Runs only on pushes to the main branch
-2. Uses a shell script to update the image reference in the Kubernetes deployment file
-3. Commits and pushes the updated deployment file back to the repository
-4. This ensures that the Kubernetes manifest always references the latest image
 
 ## Required Secrets
 
