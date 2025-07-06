@@ -107,17 +107,40 @@ jobs:
       - name: Cleanup old Docker images
         if: always()
         run: |
-          curl -s \
+          echo "Fetching package versions from GHCR..."
+          
+          # Get package versions with proper pagination
+          API_URL="https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=100"
+          RESPONSE=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=100" \
-            | jq -r 'sort_by(.created_at) | reverse | .[1:] | .[].id' \
-            | xargs -I{} sh -c '
-              echo "Deleting {}";
-              curl -X DELETE \
-                -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-                "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions/{}";
-              sleep 1'
+            "$API_URL")
+
+          # Debug: Show raw response
+          echo "API Response:"
+          echo "$RESPONSE" | jq .
+
+          # Extract and sort versions by creation date (newest first)
+          VERSIONS=$(echo "$RESPONSE" | jq -r 'sort_by(.created_at | sub("\\..+Z$"; "Z") | fromdateiso8601) | reverse')
+          
+          # Debug: Show sorted versions
+          echo "Sorted Versions:"
+          echo "$VERSIONS" | jq .
+
+          # Keep only the newest version
+          LATEST_ID=$(echo "$VERSIONS" | jq -r '.[0].id')
+          echo "Keeping latest version: $LATEST_ID"
+
+          # Delete all other versions
+          echo "$VERSIONS" | jq -r '.[1:] | .[].id' | while read VERSION_ID; do
+            echo "Deleting version $VERSION_ID"
+            curl -X DELETE \
+              -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+              "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions/$VERSION_ID"
+            sleep 1  # Avoid rate limiting
+          done
+
+          echo "Cleanup completed"
 
   update-k8s:
     name: Update Kubernetes Deployment
