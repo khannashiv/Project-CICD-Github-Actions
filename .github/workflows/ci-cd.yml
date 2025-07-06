@@ -100,62 +100,38 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          # tags: ${{ steps.meta.outputs.tags }}
+          # labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ghcr.io/${{ github.repository }}:sha-${{ github.sha }}
+            ghcr.io/${{ github.repository }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify image exists
+        run: |
+          DIGEST=$(docker inspect --format='{{.RepoDigests}}' ghcr.io/${{ github.repository }}:sha-${{ github.sha }} | cut -d'@' -f2)
+          crane digest ghcr.io/${{ github.repository }}@$DIGEST
+          echo "Image verified at digest: $DIGEST"
 
       # OPTIONAL: Safer image cleanup (disabled by default)
-      - name: Smart Image Cleanup
-        if: always()
+      - name: Cleanup old images (Safe method)
         run: |
-          echo "🔍 Starting intelligent image cleanup..."
-          
-          # Configuration
-          OWNER="khannashiv"
-          PACKAGE_NAME="project-cicd-github-actions"
-          API_URL="https://api.github.com/users/$OWNER/packages/container/$PACKAGE_NAME/versions"
-          
-          # Get all versions with full metadata
-          echo "📦 Fetching package versions..."
-          RESPONSE=$(curl -s \
+          # Get all versions, sorted by creation date
+          VERSIONS=$(curl -s \
             -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            "$API_URL?per_page=100")
+            "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions?per_page=100" \
+            | jq -r 'sort_by(.created_at) | reverse | .[].id')
           
-          # Process versions - prioritize tagged, but keep untagged manifest
-          echo "🧠 Analyzing versions..."
-          KEEPER_DATA=$(echo "$RESPONSE" | jq -r '
-            [.[] | select(.metadata.container.tags != [])] 
-            | sort_by(.created_at) 
-            | reverse 
-            | .[0] | {id: .id, tags: .metadata.container.tags[0]}')
-          
-          KEEPER_ID=$(echo "$KEEPER_DATA" | jq -r '.id')
-          KEEPER_TAG=$(echo "$KEEPER_DATA" | jq -r '.tags')
-          
-          # Find the untagged manifest for this commit
-          UNTAGGED_ID=$(echo "$RESPONSE" | jq -r --arg tag "$KEEPER_TAG" '
-            .[] | select(.metadata.container.tags == [] and .name == $tag) | .id')
-          
-          echo "💎 Keeping tagged: $KEEPER_TAG ($KEEPER_ID)"
-          echo "📌 Keeping untagged: $UNTAGGED_ID"
-          
-          # Delete all other versions
-          echo "$RESPONSE" | jq -r '.[].id' | while read VERSION_ID; do
-            if [[ "$VERSION_ID" != "$KEEPER_ID" && "$VERSION_ID" != "$UNTAGGED_ID" ]]; then
-              echo "🗑️ Deleting $VERSION_ID"
-              curl -X DELETE \
-                -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-                "$API_URL/$VERSION_ID"
-              sleep 1.5
-            fi
+          # Keep last 3 versions (adjust as needed)
+          echo "$VERSIONS" | tail -n +4 | while read VERSION_ID; do
+            echo "Deleting $VERSION_ID"
+            curl -X DELETE \
+              -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
+              "https://api.github.com/users/${{ github.actor }}/packages/container/${{ env.IMAGE_NAME }}/versions/$VERSION_ID"
+            sleep 2
           done
-          
-          # Final verification
-          echo "✅ Cleanup complete. Final state:"
-          curl -s \
-            -H "Authorization: Bearer ${{ secrets.TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "$API_URL" | jq '.[] | {id: .id, tags: .metadata.container.tags}'
         
   update-k8s:
     name: Update Kubernetes Deployment
