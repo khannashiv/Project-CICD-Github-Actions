@@ -151,3 +151,13 @@ kubectl apply -f kubernetes/deployment.yaml
 ```
 
 Or set up a webhook to trigger the deployment when the manifest is updated.
+
+Reference Docs:
+- [GitHub Actions Documentation](https://docs.github.com/en/actions)
+- [GitHub Actions Variables Reference](https://docs.github.com/en/actions/reference/variables-reference)
+- [GitHub Actions Metadata Syntax](https://docs.github.com/en/actions/reference/metadata-syntax-for-github-actions)
+- [Storing Information in Variables](https://docs.github.com/en/actions/how-tos/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables) 
+- [About the Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#about-the-container-registry)
+- [Working with the Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
+- [Listing All Images in GitHub Container Registry](https://stackoverflow.com/questions/73879886/how-to-list-all-images-from-an-account-in-github-container-registry)
+- [Trivy Action](https://github.com/aquasecurity/trivy-action)
