@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths-ignore:
       - 'kubernetes/deployment.yaml'
+      - '**/*.md' ## Ignores all Markdown files in any directory
   pull_request:
     branches: [ main ]
 
