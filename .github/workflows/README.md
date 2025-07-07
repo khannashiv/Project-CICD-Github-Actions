@@ -164,7 +164,7 @@ Reference Docs:
 
 ---
 
-## Outcomes of Github actions cicd pipelines is as follows.
+## Outcomes of Github actions cicd pipelines.
 
 - ![Github-Actions-1](../../Images/Github-Actions-1.png)
 - ![Github-Actions-2](../../Images/Github-Actions-2.png)
