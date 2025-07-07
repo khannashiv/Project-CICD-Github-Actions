@@ -164,16 +164,34 @@ Reference Docs:
 
 ---
 
-Q: Meaning of tail -n +6 ?
+## Outcomes of Github actions cicd pipelines is as follows.
 
-Sol : 
-tail -n +6 Retains 5 Builds
-    The +6 means "start printing from line 6 onward" (i.e., it skips the first 5 lines).
-    Since you're deleting everything after those 5 lines, this retains the 5 most recent images.
+- ![ArgoCD-1](../../Images/ArgoCD-1.png)
+- ![ArgoCD-2](../../Images/ArgoCD-2.png)
+- ![ArgoCD-3](../../Images/ArgoCD-3.png)
+- ![ArgoCD-4](../../Images/ArgoCD-4.png)
+- ![GHCR-1](../../Images/GHCR-1.png)
+- ![GHCR-2](../../Images/GHCR-2.png)
+- ![GHCR-3](../../Images/GHCR-3.png)
+- ![Github-Actions-1](../../Images/Github-Actions-1.png)
+- ![Github-Actions-2](../../Images/Github-Actions-2.png)
+- ![Github-Actions-3](../../Images/Github-Actions-3.png)
+- ![Github-Actions-4](../../Images/Github-Actions-4.png)
+- ![Github-Actions-5](../../Images/Github-Actions-5.png)
+- ![Github-Actions-6](../../Images/Github-Actions-6.png)
+- ![Github-Actions-7](../../Images/Github-Actions-7.png)
+- ![Github-Actions-8](../../Images/Github-Actions-8.png)
+- ![Github-Actions-9](../../Images/Github-Actions-9.png)
+- ![Outcome-1](../../Images/Outcome-1.png)
+- ![Outcome-2](../../Images/Outcome-2.png)
+- ![Outcome-3](../../Images/Outcome-3.png)
+- ![Outcome-4](../../Images/Outcome-4.png)
+- ![Outcome-5](../../Images/Outcome-5.png)
+- ![Outcome-6](../../Images/Outcome-6.png)
+- ![Outcome-7](../../Images/Outcome-7.png)
+- ![Outcome-8](../../Images/Outcome-8.png)
+- ![Outcome-9](../../Images/Outcome-9.png)
+- ![Outcome-10](../../Images/Outcome-10.png)
 
-How to Adjust Retention
+---
 
-To Keep:	Use:	Notes
-5 builds	tail -n +6	Skips 5, deletes the rest.
-10 builds	tail -n +11	Skips 10, deletes the rest.
-1 build	tail -n +2	Keeps only the latest.
