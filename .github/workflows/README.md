@@ -161,6 +161,7 @@ Reference Docs:
 - [Working with the Container Registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry)
 - [Listing All Images in GitHub Container Registry](https://stackoverflow.com/questions/73879886/how-to-list-all-images-from-an-account-in-github-container-registry)
 - [Trivy Action](https://github.com/aquasecurity/trivy-action)
+- [DevsecOps practice Repository](https://github.com/iam-veeramalla/devsecops-demo)
 
 ---
 
