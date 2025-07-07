@@ -166,13 +166,6 @@ Reference Docs:
 
 ## Outcomes of Github actions cicd pipelines is as follows.
 
-- ![ArgoCD-1](../../Images/ArgoCD-1.png)
-- ![ArgoCD-2](../../Images/ArgoCD-2.png)
-- ![ArgoCD-3](../../Images/ArgoCD-3.png)
-- ![ArgoCD-4](../../Images/ArgoCD-4.png)
-- ![GHCR-1](../../Images/GHCR-1.png)
-- ![GHCR-2](../../Images/GHCR-2.png)
-- ![GHCR-3](../../Images/GHCR-3.png)
 - ![Github-Actions-1](../../Images/Github-Actions-1.png)
 - ![Github-Actions-2](../../Images/Github-Actions-2.png)
 - ![Github-Actions-3](../../Images/Github-Actions-3.png)
@@ -182,6 +175,13 @@ Reference Docs:
 - ![Github-Actions-7](../../Images/Github-Actions-7.png)
 - ![Github-Actions-8](../../Images/Github-Actions-8.png)
 - ![Github-Actions-9](../../Images/Github-Actions-9.png)
+- ![GHCR-1](../../Images/GHCR-1.png)
+- ![GHCR-2](../../Images/GHCR-2.png)
+- ![GHCR-3](../../Images/GHCR-3.png)
+- ![ArgoCD-1](../../Images/ArgoCD-1.png)
+- ![ArgoCD-2](../../Images/ArgoCD-2.png)
+- ![ArgoCD-3](../../Images/ArgoCD-3.png)
+- ![ArgoCD-4](../../Images/ArgoCD-4.png)
 - ![Outcome-1](../../Images/Outcome-1.png)
 - ![Outcome-2](../../Images/Outcome-2.png)
 - ![Outcome-3](../../Images/Outcome-3.png)
